@@ -1,0 +1,326 @@
+<?php
+
+namespace helpers;
+
+use PDO;
+
+/**
+ * Map Helper
+ * Manages map provider configuration and settings
+ */
+class MapHelper
+{
+    private static $instance = null;
+    private $db;
+    private $settings = null;
+    
+    private function __construct($db = null)
+    {
+        $this->db = $db;
+    }
+    
+    /**
+     * Get singleton instance
+     */
+    public static function getInstance($db = null)
+    {
+        if (self::$instance === null) {
+            self::$instance = new self($db);
+        }
+        return self::$instance;
+    }
+    
+    /**
+     * Get map provider from settings
+     */
+    public function getProvider(): string
+    {
+        $this->loadSettings();
+        return $this->settings['map_provider'] ?? 'leaflet';
+    }
+    
+    /**
+     * Get Google Maps API key
+     */
+    public function getGoogleMapsApiKey(): string
+    {
+        $this->loadSettings();
+        return $this->settings['google_maps_api_key'] ?? '';
+    }
+    
+    /**
+     * Check if Google Maps is enabled and configured
+     */
+    public function isGoogleMapsEnabled(): bool
+    {
+        return $this->getProvider() === 'google' && !empty($this->getGoogleMapsApiKey());
+    }
+    
+    /**
+     * Check if Leaflet is enabled
+     */
+    public function isLeafletEnabled(): bool
+    {
+        return $this->getProvider() === 'leaflet' || !$this->isGoogleMapsEnabled();
+    }
+    
+    /**
+     * Get default map center coordinates
+     */
+    public function getDefaultCenter(): array
+    {
+        $this->loadSettings();
+        return [
+            'latitude' => floatval($this->settings['default_latitude'] ?? 5.9631),
+            'longitude' => floatval($this->settings['default_longitude'] ?? 10.1591)
+        ];
+    }
+    
+    /**
+     * Get default zoom level
+     */
+    public function getDefaultZoom(): int
+    {
+        $this->loadSettings();
+        return intval($this->settings['default_zoom_level'] ?? 13);
+    }
+    
+    /**
+     * Get map configuration as JSON
+     */
+    public function getConfigJson(): string
+    {
+        $config = [
+            'provider' => $this->getProvider(),
+            'apiKey' => $this->getGoogleMapsApiKey(),
+            'center' => array_values($this->getDefaultCenter()),
+            'zoom' => $this->getDefaultZoom(),
+            'enableGPS' => true,
+            'gpsOptions' => [
+                'desiredAccuracy' => 10,
+                'maxAttempts' => 5,
+                'updateInterval' => 3000
+            ]
+        ];
+        
+        return json_encode($config);
+    }
+    
+    /**
+     * Get map scripts HTML
+     */
+    public function getScripts(): string
+    {
+        $provider = $this->getProvider();
+        $scripts = '';
+
+        if ($provider === 'google' && $this->isGoogleMapsEnabled()) {
+            $apiKey = $this->getGoogleMapsApiKey();
+            $scripts .= '<script src="https://maps.googleapis.com/maps/api/js?key=' . htmlspecialchars($apiKey) . '&libraries=geometry,places" async defer></script>' . "\n";
+        } else {
+            // Leaflet scripts
+            $scripts .= '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>' . "\n";
+            $scripts .= '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>' . "\n";
+            $scripts .= '<link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.css" />' . "\n";
+            $scripts .= '<script src="https://unpkg.com/leaflet-control-geocoder@2.4.0/dist/Control.Geocoder.js"></script>' . "\n";
+        }
+
+        // Common scripts
+        $v = time(); // Cache busting
+        $scripts .= '<script src="' . url('/public/js/high-accuracy-gps.js') . '?v=' . $v . '"></script>' . "\n";
+
+        if ($provider === 'leaflet' || !$this->isGoogleMapsEnabled()) {
+            $scripts .= '<script src="' . url('/public/js/leaflet-map-utils.js') . '?v=' . $v . '"></script>' . "\n";
+        }
+
+        $scripts .= '<script src="' . url('/public/js/map-provider.js') . '?v=' . $v . '"></script>' . "\n";
+
+        return $scripts;
+    }
+
+    /**
+     * Get global map configuration as JavaScript
+     * This should be included in the <head> of all pages that use maps
+     */
+    public function getGlobalConfig(): string
+    {
+        $provider = $this->getProvider();
+        $apiKey = $this->getGoogleMapsApiKey();
+        $center = $this->getDefaultCenter();
+        $zoom = $this->getDefaultZoom();
+
+        $config = [
+            'provider' => $provider,
+            'apiKey' => $apiKey,
+            'defaultCenter' => array_values($center),
+            'defaultZoom' => $zoom,
+            'isGoogleMapsEnabled' => $this->isGoogleMapsEnabled()
+        ];
+
+        $configJson = json_encode($config, JSON_PRETTY_PRINT);
+
+        return <<<JS
+<script>
+// Global Map Configuration - Auto-generated by MapHelper
+window.MAP_CONFIG = $configJson;
+
+// Helper function to initialize map with global config
+window.initMapWithConfig = async function(containerId, options = {}) {
+    const config = Object.assign({}, window.MAP_CONFIG, {
+        container: containerId
+    }, options);
+
+    const mapProvider = new MapProvider(config);
+    return await mapProvider.init();
+};
+</script>
+JS;
+    }
+    
+    /**
+     * Get initialization JavaScript code
+     */
+    public function getInitScript(string $containerId, array $options = []): string
+    {
+        $config = array_merge([
+            'provider' => $this->getProvider(),
+            'apiKey' => $this->getGoogleMapsApiKey(),
+            'container' => $containerId,
+            'center' => array_values($this->getDefaultCenter()),
+            'zoom' => $this->getDefaultZoom()
+        ], $options);
+        
+        $configJson = json_encode($config);
+        
+        return <<<JS
+<script>
+    let mapProvider;
+    
+    async function initializeMap() {
+        mapProvider = new MapProvider($configJson);
+        await mapProvider.init();
+        return mapProvider;
+    }
+    
+    // Auto-initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeMap);
+    } else {
+        initializeMap();
+    }
+</script>
+JS;
+    }
+    
+    /**
+     * Load settings from database
+     */
+    private function loadSettings()
+    {
+        if ($this->settings !== null) {
+            return;
+        }
+        
+        $this->settings = [];
+        
+        // Try to load from database
+        if ($this->db) {
+            try {
+                $stmt = $this->db->prepare("SELECT `key`, `value` FROM site_settings WHERE `group` = 'maps'");
+                $stmt->execute();
+                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                foreach ($results as $row) {
+                    $this->settings[$row['key']] = $row['value'];
+                }
+            } catch (\Exception $e) {
+                error_log("MapHelper: Error loading settings - " . $e->getMessage());
+            }
+        }
+        
+        // Load from config file as fallback
+        if (empty($this->settings)) {
+            $configFile = __DIR__ . '/../../config/maps.php';
+            if (file_exists($configFile)) {
+                $config = require $configFile;
+                $this->settings = [
+                    'map_provider' => $config['provider'] ?? 'leaflet',
+                    'google_maps_api_key' => $config['google']['api_key'] ?? '',
+                    'default_latitude' => $config['defaults']['center']['latitude'] ?? 5.9631,
+                    'default_longitude' => $config['defaults']['center']['longitude'] ?? 10.1591,
+                    'default_zoom_level' => $config['defaults']['zoom'] ?? 13
+                ];
+            }
+        }
+        
+        // Final fallback to defaults
+        if (empty($this->settings)) {
+            $this->settings = [
+                'map_provider' => 'leaflet',
+                'google_maps_api_key' => '',
+                'default_latitude' => 5.9631,
+                'default_longitude' => 10.1591,
+                'default_zoom_level' => 13
+            ];
+        }
+    }
+    
+    /**
+     * Update map provider setting
+     */
+    public function setProvider(string $provider): bool
+    {
+        if (!in_array($provider, ['google', 'leaflet'])) {
+            return false;
+        }
+        
+        if (!$this->db) {
+            return false;
+        }
+        
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO site_settings (`key`, `value`, `group`, `type`, `updated_at`)
+                VALUES ('map_provider', ?, 'maps', 'string', NOW())
+                ON DUPLICATE KEY UPDATE `value` = ?, `updated_at` = NOW()
+            ");
+            $stmt->execute([$provider, $provider]);
+            
+            // Clear cached settings
+            $this->settings = null;
+            
+            return true;
+        } catch (\Exception $e) {
+            error_log("MapHelper: Error setting provider - " . $e->getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Update Google Maps API key
+     */
+    public function setGoogleMapsApiKey(string $apiKey): bool
+    {
+        if (!$this->db) {
+            return false;
+        }
+        
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO site_settings (`key`, `value`, `group`, `type`, `updated_at`)
+                VALUES ('google_maps_api_key', ?, 'maps', 'string', NOW())
+                ON DUPLICATE KEY UPDATE `value` = ?, `updated_at` = NOW()
+            ");
+            $stmt->execute([$apiKey, $apiKey]);
+            
+            // Clear cached settings
+            $this->settings = null;
+            
+            return true;
+        } catch (\Exception $e) {
+            error_log("MapHelper: Error setting API key - " . $e->getMessage());
+            return false;
+        }
+    }
+}
+

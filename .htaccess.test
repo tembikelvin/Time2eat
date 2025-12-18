@@ -1,0 +1,8 @@
+# Test .htaccess to diagnose rewrite issues
+RewriteEngine On
+
+# Simple test rule
+RewriteRule ^test-rewrite$ debug.php [L]
+
+# Test if basic rewriting works
+RewriteRule ^simple-test$ debug.php [L]

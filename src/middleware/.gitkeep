@@ -1,0 +1,6 @@
+# Middleware Directory
+# This directory contains middleware classes for:
+# - Authentication
+# - Authorization
+# - Rate limiting
+# - CORS handling

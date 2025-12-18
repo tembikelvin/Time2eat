@@ -1,0 +1,41 @@
+# Cursor Indexing Configuration
+# This file controls what Cursor indexes for AI assistance
+# We want to see ALL files except truly unnecessary ones
+
+# Allow everything by default - no patterns to ignore everything
+# Only ignore specific unnecessary files/directories
+
+# Ignore only truly unnecessary files
+node_modules/
+.git/
+.vscode/
+.idea/
+*.log
+*.tmp
+*.temp
+*.cache
+*.swp
+*.swo
+*~
+
+# Keep all .env files visible (they're important for configuration)
+# Explicitly allow .env files
+!.env
+!.env.*
+!.env.local
+!.env.development
+!.env.production
+
+# Keep all .php files visible
+# Keep all .sql files visible
+# Keep all .js files visible
+# Keep all .css files visible
+# Keep all .html files visible
+# Keep all configuration files visible
+
+# Only ignore build artifacts and temporary files
+build/
+dist/
+coverage/
+.nyc_output/
+.cache/

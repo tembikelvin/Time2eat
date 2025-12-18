@@ -1,0 +1,61 @@
+# Time2Eat - Auto-generated .htaccess for local hosting
+# Generated on 2025-10-31 21:02:48
+
+# Enable URL rewriting
+RewriteEngine On
+
+# Set base directory
+RewriteBase /eat/
+
+# Security - Hide sensitive files
+<Files ".env">
+    Require all denied
+</Files>
+<Files "composer.*">
+    Require all denied
+</Files>
+<Files "*.log">
+    Require all denied
+</Files>
+
+# API routes - always route through index.php (even if file exists)
+RewriteCond %{REQUEST_URI} ^/eat/api/ [NC]
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Serve static files directly from public directory
+# Match any file with common asset extensions
+RewriteCond %{REQUEST_URI} \.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot|webp)$ [NC]
+RewriteCond %{DOCUMENT_ROOT}%{REQUEST_URI} !-f
+RewriteCond %{DOCUMENT_ROOT}/eat/public/$1 -f
+RewriteRule ^(.*)$ public/$1 [L]
+
+# Main rewrite rule - route everything else to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Disable directory browsing
+Options -Indexes
+Options +FollowSymLinks
+
+# Cache Control Headers - Prevent caching of user-specific pages and API endpoints
+<IfModule mod_headers.c>
+    # Never cache API endpoints (user-specific data)
+    <LocationMatch "/(api|rider|vendor|customer|admin)/">
+        Header set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </LocationMatch>
+    
+    # Never cache dashboard pages
+    <LocationMatch "/.*dashboard.*">
+        Header set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </LocationMatch>
+    
+    # Cache static assets (images, CSS, JS) for 1 year
+    <FilesMatch "\.(jpg|jpeg|png|gif|ico|svg|webp|css|js|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+</IfModule>

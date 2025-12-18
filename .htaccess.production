@@ -1,0 +1,184 @@
+# Time2Eat Production .htaccess
+# Production version for www.time2eat.org
+
+# Enable URL rewriting
+RewriteEngine On
+
+# Set the base path for the rewrite rules (PRODUCTION - no subdirectory)
+RewriteBase /
+
+# Force HTTPS in production
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# CRITICAL: API routes - always route through index.php for proper handling
+# This ensures consistent routing and proper dependency loading
+RewriteCond %{REQUEST_URI} ^/api/ [NC]
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Handle customer dashboard routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^customer/(.*)$ index.php [QSA,L]
+
+# Handle vendor dashboard routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^vendor/(.*)$ index.php [QSA,L]
+
+# Handle rider dashboard routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^rider/(.*)$ index.php [QSA,L]
+
+# Handle admin dashboard routes
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^admin/(.*)$ index.php [QSA,L]
+
+# Handle other application routes (including checkout)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(browse|search|food|menu|reviews|orders|profile|favorites|addresses|payments|affiliates|disputes|notifications|messages|checkout|cart)(/.*)?$ index.php [QSA,L]
+
+# Allow static files to be served directly
+RewriteCond %{REQUEST_URI} ^/public/
+RewriteRule ^public/(.*)$ public/$1 [L]
+
+# Main rewrite rule - send everything else to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
+
+# Security headers (if mod_headers is available)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options DENY
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    
+    # CRITICAL: Prevent caching of API endpoints (user-specific data)
+    # Cart API - NEVER cache
+    <FilesMatch "api/cart/.*\.php$">
+        Header always set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+        Header always unset ETag
+    </FilesMatch>
+    
+    # Orders API - NEVER cache
+    <FilesMatch "api/orders/.*\.php$">
+        Header always set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+        Header always unset ETag
+    </FilesMatch>
+    
+    # User-specific APIs - NEVER cache
+    <FilesMatch "api/(user|profile|auth|checkout|payment|notifications|affiliate)/.*\.php$">
+        Header always set Cache-Control "no-cache, no-store, must-revalidate, private"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+        Header always unset ETag
+    </FilesMatch>
+</IfModule>
+
+# Cache static assets (if mod_expires is available)
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/x-icon "access plus 1 year"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/x-javascript "access plus 1 month"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/eot "access plus 1 year"
+    ExpiresDefault "access plus 2 days"
+</IfModule>
+
+# Compress text files (if mod_deflate is available)
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "\.(env|log|sql|md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Hide sensitive files
+<Files ".env">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>
+
+<Files ".env.production">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>
+
+<Files "composer.json">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>
+
+<Files "composer.lock">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</Files>
+
+# Disable directory browsing
+Options -Indexes
+
+# Follow symbolic links (if allowed)
+<IfModule mod_rewrite.c>
+    Options +FollowSymLinks
+</IfModule>
+
+# Default index file
+DirectoryIndex index.php index.html
+
+# Error pages
+ErrorDocument 404 /index.php
+ErrorDocument 500 /index.php

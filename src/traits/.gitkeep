@@ -1,0 +1,6 @@
+# Traits Directory
+# This directory contains reusable traits for:
+# - Timestampable
+# - Soft deletes
+# - UUID generation
+# - File handling

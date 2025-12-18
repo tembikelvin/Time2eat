@@ -1,0 +1,45 @@
+# Environment files
+.env
+.env.local
+.env.production
+.env.test
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Cache and logs
+/cache/
+/logs/
+/storage/logs/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build files
+/public/build/
+/public/hot
+/public/storage
+
+# Temporary files
+*.tmp
+*.log
+cookies.txt
+
+# Composer
+composer.phar
+
+# Package lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+

@@ -1,0 +1,15 @@
+{
+  "name": "time2eat-pwa",
+  "version": "1.0.0",
+  "description": "Time2Eat PWA notification system",
+  "scripts": {
+    "generate-vapid": "node scripts/generate-vapid-keys.js",
+    "test-notifications": "node scripts/test-notifications.js"
+  },
+  "devDependencies": {
+    "web-push": "^3.6.7"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
